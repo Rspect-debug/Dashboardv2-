@@ -1763,6 +1763,15 @@ select option { background: var(--bg2); }
 // ═══════════════════════════════════════════
 
 let db = null, auth = null, currentUser = null;
+   // ── Hardcoded Config ──
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDN_bhmBvpNCtuy8P9y5NzogCw5IyuR",
+  authDomain: "dashboard2026-v2.firebaseapp.com",
+  projectId: "dashboard2026-v2",
+  storageBucket: "dashboard2026-v2.firebasestorage.app",
+  messagingSenderId: "573017863222",
+  appId: "1:573017863222:web:e45313b7a37e12304f949"
+};
 let unsubscribers = []; // real-time listeners cleanup
 
 // Local cache (for offline + fast UI)
@@ -1884,19 +1893,7 @@ let selectedChips = new Set(['telegram']);
 // APP STARTUP — Firebase auth flow
 // ═══════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', () => {
-  const config = LocalConfig.get();
   
-  if (!config) {
-    // First time: show setup screen
-    showScreen('setup');
-    return;
-  }
-  
-  if (!initFirebase(config)) {
-    showScreen('setup');
-    showSetupError('Firebase config galat hai. Dobara daalo.');
-    return;
-  }
 
   // Listen for auth state
   auth.onAuthStateChanged(user => {
@@ -1914,7 +1911,11 @@ document.addEventListener('DOMContentLoaded', () => {
 function showScreen(screen) {
   document.getElementById('setup-screen').classList.toggle('hidden', screen !== 'setup');
   document.getElementById('auth-screen').classList.toggle('hidden', screen !== 'auth');
-  document.querySelector('.app').style.display = screen === 'app' ? 'flex' : 'none';
+const config = FIREBASE_CONFIG;
+  if (!initFirebase(config)) {
+    console.error('Firebase init failed');
+    return;
+  }  document.querySelector('.app').style.display = screen === 'app' ? 'flex' : 'none';
 }
 
 function onUserLoggedIn() {
