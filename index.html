@@ -991,7 +991,7 @@ select option { background: var(--bg2); }
 <!-- ══════════════════════════════════════════
      FIREBASE SETUP SCREEN (first time only)
      ══════════════════════════════════════════ -->
-<div class="auth-screen" id="setup-screen">
+<div class="auth-screen hidden" id="setup-screen">
   <div class="auth-box">
     <div class="auth-logo">⚡</div>
     <div class="auth-title">Firebase Setup</div>
@@ -1909,13 +1909,9 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function showScreen(screen) {
-  document.getElementById('setup-screen').classList.toggle('hidden', screen !== 'setup');
+  document.getElementById('setup-screen').classList.add('hidden');
   document.getElementById('auth-screen').classList.toggle('hidden', screen !== 'auth');
-const config = FIREBASE_CONFIG;
-  if (!initFirebase(config)) {
-    console.error('Firebase init failed');
-    return;
-  }  document.querySelector('.app').style.display = screen === 'app' ? 'flex' : 'none';
+  document.querySelector('.app').style.display = screen === 'app' ? 'flex' : 'none';
 }
 
 function onUserLoggedIn() {
