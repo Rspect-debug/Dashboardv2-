@@ -1,0 +1,2880 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+
+<!-- PWA Setup -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#7c5cfc">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Dashboard">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
+<!-- Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<style>
+/* ════════════════════════════════════════════════
+   VARIABLES — Edit karne ke liye yahi change karo
+   ════════════════════════════════════════════════ */
+:root {
+  --bg:        #0a0a0f;
+  --bg2:       #111118;
+  --bg3:       #1a1a26;
+  --card:      rgba(255,255,255,0.04);
+  --border:    rgba(255,255,255,0.08);
+  --accent:    #7c5cfc;
+  --accent2:   #fc5c7d;
+  --accent3:   #5cfcb4;
+  --text:      #f0eeff;
+  --text2:     #9590b0;
+  --text3:     #5a5570;
+  --red:       #fc5c5c;
+  --yellow:    #fcdc5c;
+  --green:     #5cfcb4;
+  --font-head: 'Syne', sans-serif;
+  --font-body: 'DM Sans', sans-serif;
+  --radius:    14px;
+  --radius-sm: 8px;
+  --shadow:    0 8px 32px rgba(0,0,0,0.4);
+  --glow:      0 0 30px rgba(124,92,252,0.15);
+}
+
+/* ════════════ BASE ════════════ */
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+::selection { background: var(--accent); color: #fff; }
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--accent); border-radius: 4px; }
+
+/* ════════════ NOISE OVERLAY ════════════ */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none; z-index: 1000; opacity: 0.4;
+}
+
+/* ════════════ LAYOUT ════════════ */
+.app { display: flex; min-height: 100vh; }
+
+/* ════════════ SIDEBAR ════════════ */
+.sidebar {
+  width: 72px;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  z-index: 100;
+  transition: width 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.sidebar.expanded { width: 220px; }
+.sidebar-logo {
+  width: 40px; height: 40px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head);
+  font-weight: 800; font-size: 18px;
+  color: #fff;
+  cursor: pointer;
+  margin-bottom: 32px;
+  box-shadow: var(--glow);
+  flex-shrink: 0;
+}
+.nav-items { width: 100%; flex: 1; }
+.nav-item {
+  display: flex; align-items: center;
+  padding: 12px 16px;
+  margin: 2px 8px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.2s;
+  gap: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  position: relative;
+}
+.nav-item:hover { background: var(--card); }
+.nav-item.active {
+  background: linear-gradient(135deg, rgba(124,92,252,0.2), rgba(252,92,125,0.1));
+  border: 1px solid rgba(124,92,252,0.3);
+}
+.nav-item.active .nav-icon { color: var(--accent); }
+.nav-icon {
+  font-size: 20px;
+  min-width: 24px;
+  text-align: center;
+  color: var(--text2);
+  transition: color 0.2s;
+}
+.nav-label {
+  font-size: 14px; font-weight: 500;
+  color: var(--text2);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.sidebar.expanded .nav-label { opacity: 1; }
+.nav-badge {
+  position: absolute; right: 10px;
+  background: var(--accent2);
+  color: #fff;
+  font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 10px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.sidebar.expanded .nav-badge { opacity: 1; }
+.sidebar-toggle {
+  margin-top: auto;
+  padding: 12px 16px;
+  cursor: pointer;
+  color: var(--text3);
+  font-size: 18px;
+  transition: color 0.2s;
+}
+.sidebar-toggle:hover { color: var(--text); }
+
+/* ════════════ MAIN ════════════ */
+.main {
+  margin-left: 72px;
+  flex: 1;
+  transition: margin-left 0.3s cubic-bezier(0.4,0,0.2,1);
+  padding: 24px;
+  max-width: 1400px;
+}
+.sidebar.expanded ~ .main { margin-left: 220px; }
+
+/* ════════════ TOPBAR ════════════ */
+.topbar {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 32px;
+  gap: 16px;
+}
+.page-title {
+  font-family: var(--font-head);
+  font-size: 28px; font-weight: 800;
+  background: linear-gradient(135deg, var(--text), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.topbar-right { display: flex; gap: 12px; align-items: center; }
+.btn {
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-body);
+  font-size: 14px; font-weight: 500;
+  transition: all 0.2s;
+  display: flex; align-items: center; gap: 8px;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff;
+  box-shadow: 0 4px 20px rgba(124,92,252,0.3);
+}
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124,92,252,0.4); }
+.btn-ghost {
+  background: var(--card);
+  color: var(--text2);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: rgba(255,255,255,0.08); color: var(--text); }
+.btn-danger {
+  background: rgba(252,92,92,0.15);
+  color: var(--red);
+  border: 1px solid rgba(252,92,92,0.3);
+}
+.btn-danger:hover { background: rgba(252,92,92,0.25); }
+.btn-sm { padding: 6px 14px; font-size: 12px; }
+
+/* ════════════ CARDS ════════════ */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  transition: all 0.2s;
+}
+.card:hover { border-color: rgba(255,255,255,0.12); }
+.card-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-family: var(--font-head);
+  font-size: 14px; font-weight: 700;
+  color: var(--text2);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* ════════════ GRID ════════════ */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.grid-3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 20px; }
+.grid-4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; }
+
+/* ════════════ TABS ════════════ */
+.tabs { display: flex; gap: 4px; margin-bottom: 20px; }
+.tab {
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13px; font-weight: 500;
+  color: var(--text2);
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+.tab:hover { color: var(--text); background: var(--card); }
+.tab.active {
+  background: rgba(124,92,252,0.15);
+  color: var(--accent);
+  border-color: rgba(124,92,252,0.3);
+}
+
+/* ════════════ FORMS ════════════ */
+input, textarea, select {
+  width: 100%;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+input:focus, textarea:focus, select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124,92,252,0.1);
+}
+textarea { resize: vertical; min-height: 100px; }
+label { font-size: 12px; color: var(--text2); margin-bottom: 6px; display: block; font-weight: 500; }
+.form-group { margin-bottom: 16px; }
+select option { background: var(--bg2); }
+
+/* ════════════ STAT CARDS ════════════ */
+.stat-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.stat-card::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  opacity: 0.08;
+  transform: translate(20px,-20px);
+}
+.stat-card.purple::after { background: var(--accent); }
+.stat-card.pink::after { background: var(--accent2); }
+.stat-card.green::after { background: var(--accent3); }
+.stat-card.yellow::after { background: var(--yellow); }
+.stat-number {
+  font-family: var(--font-head);
+  font-size: 32px; font-weight: 800;
+  margin: 8px 0 4px;
+}
+.stat-card.purple .stat-number { color: var(--accent); }
+.stat-card.pink .stat-number { color: var(--accent2); }
+.stat-card.green .stat-number { color: var(--accent3); }
+.stat-card.yellow .stat-number { color: var(--yellow); }
+.stat-label { font-size: 13px; color: var(--text2); }
+.stat-icon { font-size: 24px; margin-bottom: 4px; }
+.stat-change { font-size: 12px; margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+.stat-change.up { color: var(--green); }
+.stat-change.down { color: var(--red); }
+
+/* ════════════ NOTES ════════════ */
+.notes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+.note-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.note-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow);
+  border-color: rgba(255,255,255,0.12);
+}
+.note-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 3px; height: 100%;
+  border-radius: 3px 0 0 3px;
+}
+.note-card.cat-site::before { background: var(--accent); }
+.note-card.cat-personal::before { background: var(--accent2); }
+.note-card.cat-ideas::before { background: var(--accent3); }
+.note-card.cat-finance::before { background: var(--yellow); }
+.note-card.cat-social::before { background: #fc5cdc; }
+.note-title {
+  font-family: var(--font-head);
+  font-size: 15px; font-weight: 700;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-preview {
+  font-size: 13px; color: var(--text2);
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.note-meta {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-top: 14px;
+}
+.note-category {
+  font-size: 10px; font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  padding: 3px 10px;
+  border-radius: 20px;
+}
+.cat-site { background: rgba(124,92,252,0.15); color: var(--accent); }
+.cat-personal { background: rgba(252,92,125,0.15); color: var(--accent2); }
+.cat-ideas { background: rgba(92,252,180,0.15); color: var(--accent3); }
+.cat-finance { background: rgba(252,220,92,0.15); color: var(--yellow); }
+.cat-social { background: rgba(252,92,220,0.15); color: #fc5cdc; }
+.note-date { font-size: 11px; color: var(--text3); }
+.note-actions { display: flex; gap: 6px; margin-top: 10px; }
+
+/* ════════════ VIDEO MANAGER ════════════ */
+.upload-zone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 40px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(124,92,252,0.05);
+}
+.upload-zone input[type="file"] {
+  position: absolute; inset: 0;
+  opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+.upload-icon { font-size: 48px; margin-bottom: 12px; }
+.upload-text { font-size: 16px; font-weight: 600; color: var(--text2); }
+.upload-sub { font-size: 13px; color: var(--text3); margin-top: 6px; }
+
+.video-list { display: flex; flex-direction: column; gap: 10px; }
+.video-item {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px;
+  transition: all 0.2s;
+}
+.video-item:hover { border-color: rgba(255,255,255,0.1); }
+.video-thumb {
+  width: 60px; height: 40px;
+  background: var(--bg2);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+  overflow: hidden;
+  object-fit: cover;
+}
+.video-thumb video, .video-thumb img { width: 100%; height: 100%; object-fit: cover; border-radius: 6px; }
+.video-info { flex: 1; min-width: 0; }
+.video-name {
+  font-size: 14px; font-weight: 500;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.video-size { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.video-actions { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.progress-bar {
+  width: 100%;
+  height: 3px;
+  background: var(--bg2);
+  border-radius: 3px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent2));
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+
+/* ════════════ SOCIAL CARDS ════════════ */
+.social-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+}
+.social-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+.social-card:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.social-card.connected { border-color: rgba(92,252,180,0.3); }
+.social-card.connected::after {
+  content: '✓';
+  position: absolute;
+  top: 8px; right: 10px;
+  font-size: 11px;
+  color: var(--green);
+  font-weight: 700;
+}
+.social-icon { font-size: 36px; margin-bottom: 10px; }
+.social-name { font-size: 14px; font-weight: 600; }
+.social-status { font-size: 11px; color: var(--text3); margin-top: 4px; }
+
+/* ════════════ TASKS ════════════ */
+.task-list { display: flex; flex-direction: column; gap: 8px; }
+.task-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+.task-item:hover { border-color: rgba(255,255,255,0.1); }
+.task-item.done { opacity: 0.5; }
+.task-check {
+  width: 18px; height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.2s;
+  font-size: 11px;
+}
+.task-item.done .task-check {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.task-text { flex: 1; font-size: 14px; }
+.task-item.done .task-text { text-decoration: line-through; color: var(--text3); }
+.task-priority {
+  font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 10px;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.priority-high { background: rgba(252,92,92,0.15); color: var(--red); }
+.priority-mid { background: rgba(252,220,92,0.15); color: var(--yellow); }
+.priority-low { background: rgba(92,252,180,0.15); color: var(--green); }
+
+/* ════════════ MODAL ════════════ */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  z-index: 500;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal-overlay.open { display: flex; }
+.modal {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: modalIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes modalIn {
+  from { transform: scale(0.92); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+.modal-header {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+}
+.modal-title {
+  font-family: var(--font-head);
+  font-size: 20px; font-weight: 700;
+}
+.modal-close {
+  background: none; border: none;
+  color: var(--text2); font-size: 22px;
+  cursor: pointer; line-height: 1;
+  padding: 4px;
+  transition: color 0.2s;
+}
+.modal-close:hover { color: var(--text); }
+
+/* ════════════ TOAST ════════════ */
+.toast-container {
+  position: fixed;
+  bottom: 24px; right: 24px;
+  z-index: 999;
+  display: flex; flex-direction: column;
+  gap: 10px;
+}
+.toast {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 18px;
+  font-size: 14px;
+  display: flex; align-items: center; gap: 10px;
+  box-shadow: var(--shadow);
+  animation: toastIn 0.3s cubic-bezier(0.34,1.56,0.64,1);
+  max-width: 320px;
+}
+.toast.success { border-color: rgba(92,252,180,0.3); }
+.toast.error   { border-color: rgba(252,92,92,0.3); }
+.toast.info    { border-color: rgba(124,92,252,0.3); }
+@keyframes toastIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+@keyframes toastOut {
+  from { transform: translateX(0);    opacity: 1; }
+  to   { transform: translateX(100%); opacity: 0; }
+}
+
+/* ════════════ PAGES ════════════ */
+.page { display: none; animation: fadeUp 0.3s ease; }
+.page.active { display: block; }
+@keyframes fadeUp {
+  from { transform: translateY(12px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ════════════ SETTINGS ════════════ */
+.settings-section {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.settings-title {
+  font-family: var(--font-head);
+  font-size: 16px; font-weight: 700;
+  margin-bottom: 20px;
+  display: flex; align-items: center; gap: 10px;
+}
+.settings-row {
+  display: flex; align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+.settings-row:last-child { border-bottom: none; padding-bottom: 0; }
+.settings-key { font-size: 14px; font-weight: 500; }
+.settings-desc { font-size: 12px; color: var(--text3); margin-top: 2px; }
+.toggle {
+  width: 44px; height: 24px;
+  background: var(--bg3);
+  border-radius: 12px;
+  position: relative;
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: background 0.2s;
+}
+.toggle.on { background: var(--accent); border-color: var(--accent); }
+.toggle::after {
+  content: '';
+  position: absolute;
+  width: 18px; height: 18px;
+  background: #fff;
+  border-radius: 50%;
+  top: 2px; left: 2px;
+  transition: left 0.2s;
+}
+.toggle.on::after { left: 22px; }
+
+/* ════════════ DEBT TRACKER ════════════ */
+.debt-bar {
+  background: var(--bg3);
+  border-radius: 8px;
+  height: 12px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+.debt-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--red), var(--yellow));
+  border-radius: 8px;
+  transition: width 1s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ════════════ SEARCH BAR ════════════ */
+.search-bar {
+  display: flex; align-items: center;
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px 14px;
+  gap: 10px;
+  width: 240px;
+}
+.search-bar input {
+  background: none; border: none;
+  padding: 0; width: 100%;
+  box-shadow: none;
+}
+.search-bar input:focus { box-shadow: none; }
+.search-icon { color: var(--text3); font-size: 16px; }
+
+/* ════════════ EMPTY STATE ════════════ */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text3);
+}
+.empty-state-icon { font-size: 56px; margin-bottom: 16px; }
+.empty-state-title { font-size: 18px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+.empty-state-text { font-size: 14px; line-height: 1.6; }
+
+/* ════════════ QUICK UPLOAD PANEL ════════════ */
+.quick-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.social-chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.social-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  user-select: none;
+}
+.social-chip:hover { border-color: var(--accent); color: var(--text); }
+.social-chip.selected {
+  background: rgba(124,92,252,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ════════════ RESPONSIVE ════════════ */
+@media (max-width: 768px) {
+  .sidebar { width: 56px; }
+  .sidebar.expanded { width: 200px; }
+  .main { margin-left: 56px; padding: 16px; }
+  .sidebar.expanded ~ .main { margin-left: 200px; }
+  .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; }
+  .topbar { flex-wrap: wrap; }
+  .page-title { font-size: 22px; }
+  .grid-stats { grid-template-columns: 1fr 1fr; }
+  .search-bar { width: 100%; }
+}
+.grid-stats {
+  display: grid;
+  grid-template-columns: repeat(4,1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 1024px) {
+  .grid-stats { grid-template-columns: repeat(2,1fr); }
+}
+
+/* ════════════ ANIMATIONS ════════════ */
+.animate-in {
+  animation: fadeUp 0.4s cubic-bezier(0.4,0,0.2,1) both;
+}
+.animate-in:nth-child(1) { animation-delay: 0.05s; }
+.animate-in:nth-child(2) { animation-delay: 0.10s; }
+.animate-in:nth-child(3) { animation-delay: 0.15s; }
+.animate-in:nth-child(4) { animation-delay: 0.20s; }
+.animate-in:nth-child(5) { animation-delay: 0.25s; }
+
+/* ════════════ DIVIDER ════════════ */
+.divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+.section-gap { margin-bottom: 24px; }
+
+/* ════════════ TAG ════════════ */
+.tag {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 11px; font-weight: 600;
+  gap: 4px;
+}
+
+/* ════════════ NOTE EDITOR ════════════ */
+.editor-toolbar {
+  display: flex; gap: 4px; flex-wrap: wrap;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+.editor-btn {
+  background: none; border: none;
+  color: var(--text2); cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: all 0.15s;
+}
+.editor-btn:hover { background: var(--card); color: var(--text); }
+.note-editor {
+  min-height: 200px;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.8;
+  color: var(--text);
+}
+.note-editor:empty::before {
+  content: attr(data-placeholder);
+  color: var(--text3);
+  pointer-events: none;
+}
+
+/* ════════════ CALENDAR ROW ════════════ */
+.schedule-item {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 14px;
+  background: var(--bg3);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  margin-bottom: 10px;
+}
+.schedule-time {
+  font-family: var(--font-head);
+  font-size: 13px; font-weight: 700;
+  color: var(--accent);
+  min-width: 60px;
+}
+.schedule-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+/* ════════════ TELEGRAM BOT STATUS ════════════ */
+.bot-status {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 16px;
+}
+.bot-status.ok { background: rgba(92,252,180,0.1); color: var(--green); border: 1px solid rgba(92,252,180,0.2); }
+.bot-status.fail { background: rgba(252,92,92,0.1); color: var(--red); border: 1px solid rgba(252,92,92,0.2); }
+.bot-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+.bot-status.ok .bot-dot { background: var(--green); }
+.bot-status.fail .bot-dot { background: var(--red); animation: none; }
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
+/* ════════════════════════════════════════════════
+   FIREBASE SETUP + AUTH SCREENS
+   ════════════════════════════════════════════════ */
+
+/* Full screen overlay for auth */
+.auth-screen {
+  position: fixed; inset: 0;
+  background: var(--bg);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.auth-screen.hidden { display: none; }
+
+.auth-box {
+  width: 100%;
+  max-width: 420px;
+  animation: fadeUp 0.4s cubic-bezier(0.4,0,0.2,1);
+}
+.auth-logo {
+  width: 64px; height: 64px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 20px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-head);
+  font-weight: 800; font-size: 28px;
+  color: #fff;
+  margin: 0 auto 24px;
+  box-shadow: 0 8px 32px rgba(124,92,252,0.35);
+}
+.auth-title {
+  font-family: var(--font-head);
+  font-size: 28px; font-weight: 800;
+  text-align: center;
+  background: linear-gradient(135deg, var(--text), var(--accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 6px;
+}
+.auth-sub {
+  text-align: center;
+  font-size: 14px; color: var(--text3);
+  margin-bottom: 32px;
+}
+.auth-card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 28px;
+}
+.auth-tabs {
+  display: flex;
+  background: var(--bg3);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+  margin-bottom: 24px;
+  gap: 4px;
+}
+.auth-tab {
+  flex: 1; text-align: center;
+  padding: 9px;
+  border-radius: 6px;
+  font-size: 14px; font-weight: 600;
+  cursor: pointer;
+  color: var(--text2);
+  transition: all 0.2s;
+}
+.auth-tab.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 12px rgba(124,92,252,0.3);
+}
+.auth-error {
+  background: rgba(252,92,92,0.1);
+  border: 1px solid rgba(252,92,92,0.25);
+  color: var(--red);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  margin-bottom: 16px;
+  display: none;
+}
+.auth-error.show { display: block; }
+
+/* Firebase Setup Screen */
+.setup-step {
+  display: flex; gap: 14px;
+  padding: 14px;
+  background: var(--bg3);
+  border-radius: var(--radius-sm);
+  margin-bottom: 10px;
+  border: 1px solid var(--border);
+}
+.setup-num {
+  width: 28px; height: 28px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700; color: #fff;
+  flex-shrink: 0;
+}
+.setup-text { font-size: 13px; color: var(--text2); line-height: 1.7; }
+.setup-text b { color: var(--text); }
+
+/* User avatar in topbar */
+.user-avatar {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 15px; font-weight: 700; color: #fff;
+  cursor: pointer;
+  flex-shrink: 0;
+  position: relative;
+}
+.user-menu {
+  position: absolute;
+  top: 44px; right: 0;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  min-width: 180px;
+  z-index: 200;
+  box-shadow: var(--shadow);
+  display: none;
+}
+.user-menu.open { display: block; animation: fadeUp 0.2s ease; }
+.user-menu-item {
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 13px; cursor: pointer;
+  color: var(--text2);
+  transition: all 0.15s;
+  display: flex; align-items: center; gap: 8px;
+}
+.user-menu-item:hover { background: var(--card); color: var(--text); }
+.user-email {
+  padding: 10px 14px 6px;
+  font-size: 11px; color: var(--text3);
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR
+     ══════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════════
+     FIREBASE SETUP SCREEN (first time only)
+     ══════════════════════════════════════════ -->
+<div class="auth-screen" id="setup-screen">
+  <div class="auth-box">
+    <div class="auth-logo">⚡</div>
+    <div class="auth-title">Firebase Setup</div>
+    <div class="auth-sub">Ek baar karo — hamesha ke liye sync</div>
+    <div class="auth-card">
+      <div style="margin-bottom:20px">
+        <div class="setup-step"><div class="setup-num">1</div><div class="setup-text"><b>console.firebase.google.com</b> kholo → New Project banao</div></div>
+        <div class="setup-step"><div class="setup-num">2</div><div class="setup-text"><b>Authentication</b> → Email/Password enable karo</div></div>
+        <div class="setup-step"><div class="setup-num">3</div><div class="setup-text"><b>Firestore Database</b> → Create → <b>asia-south1</b> select karo</div></div>
+        <div class="setup-step"><div class="setup-num">4</div><div class="setup-text">Project Settings (⚙️) → <b>Add App</b> → Web → Config copy karo</div></div>
+      </div>
+      <div class="auth-error" id="setup-error"></div>
+      <div class="form-group">
+        <label>apiKey</label>
+        <input type="text" id="fb-apiKey" placeholder="AIzaSy...">
+      </div>
+      <div class="form-group">
+        <label>authDomain</label>
+        <input type="text" id="fb-authDomain" placeholder="yourapp.firebaseapp.com">
+      </div>
+      <div class="form-group">
+        <label>projectId</label>
+        <input type="text" id="fb-projectId" placeholder="yourapp-12345">
+      </div>
+      <div class="form-group">
+        <label>storageBucket (optional)</label>
+        <input type="text" id="fb-storageBucket" placeholder="yourapp.appspot.com">
+      </div>
+      <div class="form-group">
+        <label>messagingSenderId (optional)</label>
+        <input type="text" id="fb-messagingSenderId" placeholder="123456789">
+      </div>
+      <div class="form-group">
+        <label>appId</label>
+        <input type="text" id="fb-appId" placeholder="1:123:web:abc...">
+      </div>
+      <button class="btn btn-primary" style="width:100%" onclick="saveFirebaseConfig()">🔌 Connect Firebase</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     LOGIN / REGISTER SCREEN
+     ══════════════════════════════════════════ -->
+<div class="auth-screen hidden" id="auth-screen">
+  <div class="auth-box">
+    <div class="auth-logo">⚡</div>
+    <div class="auth-title">My Dashboard</div>
+    <div class="auth-sub">Apna account se login karo</div>
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <div class="auth-tab active" onclick="switchAuthTab('login', this)">Login</div>
+        <div class="auth-tab" onclick="switchAuthTab('register', this)">Account Banao</div>
+      </div>
+      <div class="auth-error" id="auth-error"></div>
+
+      <!-- Login Form -->
+      <div id="login-form">
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="email@example.com">
+        </div>
+        <div class="form-group">
+          <label>Password</label>
+          <input type="password" id="login-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="doLogin()" id="login-btn">
+          🔐 Login Karo
+        </button>
+        <div style="text-align:center;margin-top:14px">
+          <span style="font-size:13px;color:var(--text3);cursor:pointer" onclick="doForgotPassword()">Password bhool gaye? Reset karo</span>
+        </div>
+      </div>
+
+      <!-- Register Form -->
+      <div id="register-form" style="display:none">
+        <div class="form-group">
+          <label>Naam</label>
+          <input type="text" id="reg-name" placeholder="Apna naam">
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="reg-email" placeholder="email@example.com">
+        </div>
+        <div class="form-group">
+          <label>Password (6+ characters)</label>
+          <input type="password" id="reg-pass" placeholder="••••••••" onkeydown="if(event.key==='Enter')doRegister()">
+        </div>
+        <button class="btn btn-primary" style="width:100%" onclick="doRegister()" id="reg-btn">
+          ✨ Account Banao
+        </button>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:16px">
+      <span style="font-size:12px;color:var(--text3);cursor:pointer" onclick="resetFirebaseConfig()">⚙️ Firebase Config change karo</span>
+    </div>
+  </div>
+</div>
+
+<div class="app" style="display:none">
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-logo" onclick="toggleSidebar()">M</div>
+  <nav class="nav-items">
+    <div class="nav-item active" onclick="showPage('dashboard')">
+      <span class="nav-icon">⚡</span>
+      <span class="nav-label">Dashboard</span>
+    </div>
+    <div class="nav-item" onclick="showPage('notes')">
+      <span class="nav-icon">📝</span>
+      <span class="nav-label">Notes</span>
+      <span class="nav-badge" id="notes-badge">0</span>
+    </div>
+    <div class="nav-item" onclick="showPage('tasks')">
+      <span class="nav-icon">✅</span>
+      <span class="nav-label">Tasks</span>
+      <span class="nav-badge" id="tasks-badge">0</span>
+    </div>
+    <div class="nav-item" onclick="showPage('upload')">
+      <span class="nav-icon">📤</span>
+      <span class="nav-label">Upload</span>
+    </div>
+    <div class="nav-item" onclick="showPage('schedule')">
+      <span class="nav-icon">📅</span>
+      <span class="nav-label">Schedule</span>
+    </div>
+    <div class="nav-item" onclick="showPage('finance')">
+      <span class="nav-icon">💰</span>
+      <span class="nav-label">Finance</span>
+    </div>
+    <div class="nav-item" onclick="showPage('settings')">
+      <span class="nav-icon">⚙️</span>
+      <span class="nav-label">Settings</span>
+    </div>
+  </nav>
+  <div class="sidebar-toggle" onclick="toggleSidebar()">☰</div>
+</aside>
+
+<!-- ══════════════════════════════════════════
+     MAIN CONTENT
+     ══════════════════════════════════════════ -->
+<main class="main" id="main">
+
+  <!-- ══ DASHBOARD PAGE ══ -->
+  <div class="page active" id="page-dashboard">
+    <div class="topbar">
+      <div>
+        <div class="page-title">⚡ Dashboard</div>
+        <div style="font-size:13px;color:var(--text3);margin-top:4px;" id="greeting-text">Loading...</div>
+      </div>
+      <div class="topbar-right">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Search...">
+        </div>
+        <button class="btn btn-primary btn-sm" onclick="showPage('upload')">+ Upload</button>
+        <div class="user-avatar" id="user-avatar" onclick="toggleUserMenu()">
+          <span id="user-initial">?</span>
+          <div class="user-menu" id="user-menu">
+            <div class="user-email" id="user-email-display">loading...</div>
+            <div class="user-menu-item" onclick="showPage('settings')">⚙️ Settings</div>
+            <div class="user-menu-item" onclick="doLogout()" style="color:var(--red)">🚪 Logout</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid-stats">
+      <div class="stat-card purple animate-in">
+        <div class="stat-icon">👁️</div>
+        <div class="stat-number" id="stat-visitors">2</div>
+        <div class="stat-label">Daily Visitors</div>
+        <div class="stat-change up" id="stat-visitors-change">↑ Site growing</div>
+      </div>
+      <div class="stat-card pink animate-in">
+        <div class="stat-icon">📺</div>
+        <div class="stat-number" id="stat-videos">0</div>
+        <div class="stat-label">Videos Imported</div>
+      </div>
+      <div class="stat-card green animate-in">
+        <div class="stat-icon">💸</div>
+        <div class="stat-number" id="stat-earnings">₹0</div>
+        <div class="stat-label">Today Earnings</div>
+      </div>
+      <div class="stat-card yellow animate-in">
+        <div class="stat-icon">📢</div>
+        <div class="stat-number" id="stat-tg-subs">0</div>
+        <div class="stat-label">Telegram Subs</div>
+      </div>
+    </div>
+
+    <div class="grid-2 section-gap">
+      <!-- Today's Tasks -->
+      <div class="card animate-in">
+        <div class="card-header">
+          <span class="card-title">🎯 Today's Tasks</span>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('tasks')">View All</button>
+        </div>
+        <div id="dashboard-tasks">
+          <div class="empty-state" style="padding:30px 0">
+            <div style="font-size:32px;margin-bottom:8px">✅</div>
+            <div style="font-size:14px;color:var(--text3)">Koi task nahi. Banao!</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px" onclick="openTaskModal()">+ Task Add Karo</button>
+      </div>
+
+      <!-- Recent Notes -->
+      <div class="card animate-in">
+        <div class="card-header">
+          <span class="card-title">📝 Recent Notes</span>
+          <button class="btn btn-ghost btn-sm" onclick="showPage('notes')">View All</button>
+        </div>
+        <div id="dashboard-notes">
+          <div class="empty-state" style="padding:30px 0">
+            <div style="font-size:32px;margin-bottom:8px">📒</div>
+            <div style="font-size:14px;color:var(--text3)">Koi note nahi. Likho!</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="width:100%;margin-top:12px" onclick="openNoteModal()">+ Note Likho</button>
+      </div>
+    </div>
+
+    <!-- Site Plan -->
+    <div class="card animate-in section-gap">
+      <div class="card-header">
+        <span class="card-title">🚀 1 Month Plan — Site Grow</span>
+        <span class="tag" style="background:rgba(92,252,180,0.1);color:var(--green)">Week <span id="current-week">1</span>/4</span>
+      </div>
+      <div class="grid-4" style="gap:12px">
+        <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--accent);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Week 1</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">Plugin fix ✅<br>Auto-import chalu<br>Telegram channel banao<br>50+ videos import</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--accent2);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Week 2</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">100+ visitors target<br>Telegram 300 subs<br>Groups mein share<br>Content volume badhao</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--accent3);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Week 3</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">300+ visitors<br>Telegram 700 subs<br>ExoClick optimize<br>Hindi SEO</div>
+        </div>
+        <div style="background:var(--bg3);border-radius:10px;padding:16px;border:1px solid var(--border)">
+          <div style="font-size:11px;color:var(--yellow);font-weight:700;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px">Week 4</div>
+          <div style="font-size:13px;color:var(--text2);line-height:1.7">500+ visitors<br>Telegram 1000 subs<br>₹300+/day earnings<br>Strategy review</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ NOTES PAGE ══ -->
+  <div class="page" id="page-notes">
+    <div class="topbar">
+      <div class="page-title">📝 Notes</div>
+      <div class="topbar-right">
+        <div class="search-bar">
+          <span class="search-icon">🔍</span>
+          <input type="text" placeholder="Notes search..." oninput="searchNotes(this.value)">
+        </div>
+        <button class="btn btn-primary" onclick="openNoteModal()">+ Naya Note</button>
+      </div>
+    </div>
+    <div class="tabs" id="notes-tabs">
+      <div class="tab active" onclick="filterNotes('all', this)">Sab</div>
+      <div class="tab" onclick="filterNotes('site', this)">🌐 Site</div>
+      <div class="tab" onclick="filterNotes('social', this)">📱 Social</div>
+      <div class="tab" onclick="filterNotes('ideas', this)">💡 Ideas</div>
+      <div class="tab" onclick="filterNotes('finance', this)">💰 Finance</div>
+      <div class="tab" onclick="filterNotes('personal', this)">🙍 Personal</div>
+    </div>
+    <div class="notes-grid" id="notes-grid">
+      <div class="empty-state" style="grid-column:1/-1">
+        <div class="empty-state-icon">📒</div>
+        <div class="empty-state-title">Abhi tak koi note nahi</div>
+        <div class="empty-state-text">+ Naya Note button dabaao</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ TASKS PAGE ══ -->
+  <div class="page" id="page-tasks">
+    <div class="topbar">
+      <div class="page-title">✅ Tasks</div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" onclick="clearDoneTasks()">Done clear karo</button>
+        <button class="btn btn-primary" onclick="openTaskModal()">+ Naya Task</button>
+      </div>
+    </div>
+    <div class="tabs">
+      <div class="tab active" onclick="filterTasks('all', this)">Sab</div>
+      <div class="tab" onclick="filterTasks('pending', this)">Pending</div>
+      <div class="tab" onclick="filterTasks('done', this)">Done</div>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">HIGH PRIORITY</div>
+        <div class="task-list" id="tasks-high"></div>
+      </div>
+      <div>
+        <div style="font-size:12px;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px">NORMAL / LOW</div>
+        <div class="task-list" id="tasks-normal"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ UPLOAD PAGE ══ -->
+  <div class="page" id="page-upload">
+    <div class="topbar">
+      <div class="page-title">📤 Upload Manager</div>
+    </div>
+
+    <!-- Quick Upload Panel -->
+    <div class="quick-panel section-gap">
+      <div style="font-size:15px;font-weight:600;margin-bottom:8px">Konsi sites pe share karna hai?</div>
+      <div style="font-size:13px;color:var(--text3);margin-bottom:4px">Select karo — phir video choose karo</div>
+      <div class="social-chips">
+        <div class="social-chip" id="chip-telegram" onclick="toggleChip('telegram')">
+          <span>✈️</span> Telegram
+        </div>
+        <div class="social-chip" id="chip-instagram" onclick="toggleChip('instagram')">
+          <span>📸</span> Instagram
+        </div>
+        <div class="social-chip" id="chip-twitter" onclick="toggleChip('twitter')">
+          <span>🐦</span> Twitter/X
+        </div>
+        <div class="social-chip" id="chip-reddit" onclick="toggleChip('reddit')">
+          <span>🔴</span> Reddit
+        </div>
+        <div class="social-chip" id="chip-youtube" onclick="toggleChip('youtube')">
+          <span>▶️</span> YouTube
+        </div>
+        <div class="social-chip" id="chip-xvideos" onclick="toggleChip('xvideos')">
+          <span>🎬</span> XVideos
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload Zone -->
+    <div class="upload-zone section-gap" id="upload-zone" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)">
+      <input type="file" accept="video/*,image/*" multiple onchange="handleFiles(event)" id="file-input">
+      <div class="upload-icon">🎬</div>
+      <div class="upload-text">Videos ya Images yahan drop karo</div>
+      <div class="upload-sub">Ya click karke select karo • MP4, MOV, AVI, JPG, PNG</div>
+    </div>
+
+    <!-- File Queue -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📋 Upload Queue</span>
+        <button class="btn btn-primary btn-sm" id="upload-all-btn" onclick="uploadAll()" style="display:none">🚀 Sab Upload Karo</button>
+      </div>
+      <div class="video-list" id="video-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">📂</div>
+          <div class="empty-state-title">Koi file nahi</div>
+          <div class="empty-state-text">Upar se file add karo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Telegram Bot Instructions -->
+    <div class="card" style="margin-top:20px">
+      <div class="card-header">
+        <span class="card-title">✈️ Telegram Setup</span>
+        <span id="tg-bot-status-badge" class="tag" style="background:rgba(252,92,92,0.1);color:var(--red)">⚠️ Bot chahiye</span>
+      </div>
+      <div id="tg-setup-instructions">
+        <div style="background:var(--bg3);border-radius:10px;padding:18px;margin-bottom:16px;border:1px solid var(--border)">
+          <div style="font-size:13px;font-weight:600;margin-bottom:10px;color:var(--accent)">📱 Telegram Bot Kaise Banayein:</div>
+          <div style="font-size:13px;color:var(--text2);line-height:2">
+            <b style="color:var(--text)">Step 1:</b> Telegram mein @BotFather open karo<br>
+            <b style="color:var(--text)">Step 2:</b> /newbot type karo<br>
+            <b style="color:var(--text)">Step 3:</b> Bot ka naam do (jaise: MySiteBot)<br>
+            <b style="color:var(--text)">Step 4:</b> Token copy karo (jaise: 1234567890:AABBcc...)<br>
+            <b style="color:var(--text)">Step 5:</b> Apna channel banao → Bot ko Admin banao<br>
+            <b style="color:var(--text)">Step 6:</b> Channel ID nikalo (neeche setting mein daalo)
+          </div>
+        </div>
+        <div style="font-size:13px;color:var(--text3)">⚙️ Settings mein jaake Telegram Token aur Channel ID daalo</div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:10px" onclick="showPage('settings')">Settings Open Karo →</button>
+      </div>
+      <div id="tg-bot-connected" style="display:none">
+        <div class="bot-status ok">
+          <div class="bot-dot"></div>
+          Telegram Bot Connected — Ready to upload!
+        </div>
+        <div class="form-group">
+          <label>Post Caption (optional)</label>
+          <textarea id="tg-caption" placeholder="Video ka description likhoo... #desi #viral" style="min-height:80px"></textarea>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SCHEDULE PAGE ══ -->
+  <div class="page" id="page-schedule">
+    <div class="topbar">
+      <div class="page-title">📅 Schedule</div>
+      <button class="btn btn-primary" onclick="openScheduleModal()">+ Add Schedule</button>
+    </div>
+    <div class="grid-2">
+      <div>
+        <div class="card-title" style="margin-bottom:16px">📌 Aaj Ka Plan</div>
+        <div id="schedule-today"></div>
+        <div class="empty-state" id="schedule-empty" style="padding:40px 0;display:none">
+          <div style="font-size:32px">📅</div>
+          <div style="font-size:14px;color:var(--text3);margin-top:8px">Koi schedule nahi</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⏰ Daily Routine Template</span>
+        </div>
+        <div style="font-size:13px;color:var(--text2);line-height:2.2">
+          <div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--accent);font-weight:600;min-width:70px">6:00 AM</span>
+            <span>Uthna + Check stats</span>
+          </div>
+          <div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--accent);font-weight:600;min-width:70px">9:00 AM</span>
+            <span>Site — Videos import</span>
+          </div>
+          <div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--accent);font-weight:600;min-width:70px">12:00 PM</span>
+            <span>Telegram post</span>
+          </div>
+          <div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--accent);font-weight:600;min-width:70px">2:00 PM</span>
+            <span>Rapido shift</span>
+          </div>
+          <div style="display:flex;gap:12px;padding:8px 0;border-bottom:1px solid var(--border)">
+            <span style="color:var(--accent);font-weight:600;min-width:70px">8:00 PM</span>
+            <span>Groups mein share</span>
+          </div>
+          <div style="display:flex;gap:12px;padding:8px 0">
+            <span style="color:var(--accent);font-weight:600;min-width:70px">10:00 PM</span>
+            <span>Stats dekho + plan karo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ FINANCE PAGE ══ -->
+  <div class="page" id="page-finance">
+    <div class="topbar">
+      <div class="page-title">💰 Finance Tracker</div>
+      <button class="btn btn-primary" onclick="openTransactionModal()">+ Transaction</button>
+    </div>
+
+    <!-- Debt Card -->
+    <div class="card section-gap" style="border-color:rgba(252,92,92,0.2)">
+      <div class="card-header">
+        <span class="card-title" style="color:var(--red)">🔴 Debt Status</span>
+        <button class="btn btn-ghost btn-sm" onclick="updateDebt()">Update</button>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:8px">
+        <span style="font-size:13px;color:var(--text2)">Total Debt</span>
+        <span style="font-size:22px;font-weight:800;font-family:var(--font-head);color:var(--red)" id="debt-total">₹1,00,000</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:13px;color:var(--text2)">Paid So Far</span>
+        <span style="font-size:18px;font-weight:700;color:var(--green)" id="debt-paid">₹0</span>
+      </div>
+      <div class="debt-bar">
+        <div class="debt-fill" id="debt-bar-fill" style="width:0%"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--text3)">
+        <span>0% paid</span>
+        <span id="debt-percent">0% paid</span>
+        <span>₹1,00,000</span>
+      </div>
+    </div>
+
+    <div class="grid-3 section-gap">
+      <div class="stat-card green">
+        <div class="stat-icon">💵</div>
+        <div class="stat-number" id="fin-income">₹0</div>
+        <div class="stat-label">This Month Income</div>
+      </div>
+      <div class="stat-card pink">
+        <div class="stat-icon">💸</div>
+        <div class="stat-number" id="fin-expense">₹0</div>
+        <div class="stat-label">This Month Expense</div>
+      </div>
+      <div class="stat-card purple">
+        <div class="stat-icon">💳</div>
+        <div class="stat-number" id="fin-balance">₹0</div>
+        <div class="stat-label">Net Balance</div>
+      </div>
+    </div>
+
+    <!-- Sources -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📊 Income Sources</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg3);border-radius:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">🛵</span>
+            <div>
+              <div style="font-size:14px;font-weight:600">Rapido</div>
+              <div style="font-size:12px;color:var(--text3)">Daily rides</div>
+            </div>
+          </div>
+          <input type="number" style="width:120px;text-align:right" placeholder="₹0" id="rapido-income" onchange="saveFinance()">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg3);border-radius:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">🌐</span>
+            <div>
+              <div style="font-size:14px;font-weight:600">Site (ExoClick)</div>
+              <div style="font-size:12px;color:var(--text3)">Ad revenue</div>
+            </div>
+          </div>
+          <input type="number" style="width:120px;text-align:right" placeholder="₹0" id="site-income" onchange="saveFinance()">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg3);border-radius:8px">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:20px">➕</span>
+            <div>
+              <div style="font-size:14px;font-weight:600">Other</div>
+              <div style="font-size:12px;color:var(--text3)">Any other source</div>
+            </div>
+          </div>
+          <input type="number" style="width:120px;text-align:right" placeholder="₹0" id="other-income" onchange="saveFinance()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Transactions -->
+    <div class="card" style="margin-top:20px">
+      <div class="card-header">
+        <span class="card-title">📋 Transactions</span>
+      </div>
+      <div id="transactions-list">
+        <div class="empty-state" style="padding:30px 0">
+          <div style="font-size:28px">💸</div>
+          <div style="font-size:14px;color:var(--text3);margin-top:8px">Koi transaction nahi</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SETTINGS PAGE ══ -->
+  <div class="page" id="page-settings">
+    <div class="topbar">
+      <div class="page-title">⚙️ Settings</div>
+    </div>
+
+    <!-- Telegram -->
+    <div class="settings-section">
+      <div class="settings-title">✈️ Telegram Bot Settings</div>
+      <div class="form-group">
+        <label>Bot Token (BotFather se milega)</label>
+        <input type="password" id="s-tg-token" placeholder="1234567890:AABBccDDee..." onchange="saveSettings()">
+      </div>
+      <div class="form-group">
+        <label>Channel ID (jaise: @mychannel ya -100123456789)</label>
+        <input type="text" id="s-tg-channel" placeholder="@yourchannel" onchange="saveSettings()">
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="testTelegramBot()">🔌 Connection Test Karo</button>
+      <div id="tg-test-result" style="margin-top:12px"></div>
+    </div>
+
+    <!-- Site Stats Manual Update -->
+    <div class="settings-section">
+      <div class="settings-title">📊 Site Stats Update Karo</div>
+      <div class="grid-2">
+        <div class="form-group">
+          <label>Daily Visitors</label>
+          <input type="number" id="s-visitors" placeholder="0" onchange="saveSettings()">
+        </div>
+        <div class="form-group">
+          <label>Total Videos Imported</label>
+          <input type="number" id="s-videos" placeholder="0" onchange="saveSettings()">
+        </div>
+        <div class="form-group">
+          <label>Today Earnings (₹)</label>
+          <input type="number" id="s-earnings" placeholder="0" onchange="saveSettings()">
+        </div>
+        <div class="form-group">
+          <label>Telegram Subscribers</label>
+          <input type="number" id="s-tgsubs" placeholder="0" onchange="saveSettings()">
+        </div>
+      </div>
+      <button class="btn btn-primary btn-sm" onclick="updateStats()">💾 Stats Save Karo</button>
+    </div>
+
+    <!-- Dashboard Name -->
+    <div class="settings-section">
+      <div class="settings-title">🎨 Personal</div>
+      <div class="form-group">
+        <label>Apna Naam (greeting ke liye)</label>
+        <input type="text" id="s-name" placeholder="Bhai" onchange="saveSettings()">
+      </div>
+      <div class="form-group">
+        <label>Site URL</label>
+        <input type="text" id="s-site-url" placeholder="https://yoursite.com" onchange="saveSettings()">
+      </div>
+    </div>
+
+    <!-- Data -->
+    <div class="settings-section">
+      <div class="settings-title">🗄️ Data Manage</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" onclick="exportData()">📤 Data Export (Backup)</button>
+        <button class="btn btn-ghost btn-sm" onclick="importData()">📥 Data Import</button>
+        <button class="btn btn-danger btn-sm" onclick="clearAllData()">🗑️ Sab Delete</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<!-- ══════════════════════════════════════════
+     MODALS
+     ══════════════════════════════════════════ -->
+
+<!-- Note Modal -->
+<div class="modal-overlay" id="modal-note">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title" id="note-modal-title">📝 Naya Note</div>
+      <button class="modal-close" onclick="closeModal('modal-note')">×</button>
+    </div>
+    <div class="form-group">
+      <label>Title</label>
+      <input type="text" id="note-title-input" placeholder="Note ka title...">
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <select id="note-cat-input">
+        <option value="site">🌐 Site</option>
+        <option value="social">📱 Social Media</option>
+        <option value="ideas">💡 Ideas</option>
+        <option value="finance">💰 Finance</option>
+        <option value="personal">🙍 Personal</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Content</label>
+      <div class="editor-toolbar">
+        <button class="editor-btn" onclick="execCmd('bold')" title="Bold"><b>B</b></button>
+        <button class="editor-btn" onclick="execCmd('italic')" title="Italic"><i>I</i></button>
+        <button class="editor-btn" onclick="execCmd('underline')" title="Underline"><u>U</u></button>
+        <button class="editor-btn" onclick="execCmd('strikeThrough')" title="Strike">S̶</button>
+        <button class="editor-btn" onclick="execCmd('insertUnorderedList')" title="List">•</button>
+        <button class="editor-btn" onclick="execCmd('insertOrderedList')" title="Numbered">1.</button>
+        <button class="editor-btn" onclick="execCmd('formatBlock','h3')" title="Heading">H</button>
+        <button class="editor-btn" onclick="execCmd('removeFormat')" title="Clear">✕</button>
+      </div>
+      <div class="note-editor" id="note-content-input" contenteditable="true" data-placeholder="Note likhoo..."></div>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-note')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveNote()">💾 Save Karo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Task Modal -->
+<div class="modal-overlay" id="modal-task">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">✅ Naya Task</div>
+      <button class="modal-close" onclick="closeModal('modal-task')">×</button>
+    </div>
+    <div class="form-group">
+      <label>Task</label>
+      <input type="text" id="task-text-input" placeholder="Kya karna hai?">
+    </div>
+    <div class="form-group">
+      <label>Priority</label>
+      <select id="task-priority-input">
+        <option value="high">🔴 High — Abhi karna hai</option>
+        <option value="mid">🟡 Medium — Aaj karna hai</option>
+        <option value="low">🟢 Low — Baad mein</option>
+      </select>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-task')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTask()">💾 Save Karo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Transaction Modal -->
+<div class="modal-overlay" id="modal-transaction">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">💸 Transaction Add</div>
+      <button class="modal-close" onclick="closeModal('modal-transaction')">×</button>
+    </div>
+    <div class="form-group">
+      <label>Type</label>
+      <select id="tx-type">
+        <option value="income">💵 Income</option>
+        <option value="expense">💸 Expense</option>
+        <option value="debt">🔴 Debt Payment</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Amount (₹)</label>
+      <input type="number" id="tx-amount" placeholder="0">
+    </div>
+    <div class="form-group">
+      <label>Description</label>
+      <input type="text" id="tx-desc" placeholder="Kahan se / kahan gaya?">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-transaction')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTransaction()">💾 Add Karo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Schedule Modal -->
+<div class="modal-overlay" id="modal-schedule">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">📅 Schedule Add</div>
+      <button class="modal-close" onclick="closeModal('modal-schedule')">×</button>
+    </div>
+    <div class="form-group">
+      <label>Time</label>
+      <input type="time" id="sch-time">
+    </div>
+    <div class="form-group">
+      <label>Task</label>
+      <input type="text" id="sch-task" placeholder="Kya karna hai?">
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px">
+      <button class="btn btn-ghost" onclick="closeModal('modal-schedule')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSchedule()">💾 Add Karo</button>
+    </div>
+  </div>
+</div>
+
+<!-- Note View Modal -->
+<div class="modal-overlay" id="modal-note-view">
+  <div class="modal" style="max-width:680px">
+    <div class="modal-header">
+      <div class="modal-title" id="note-view-title"></div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <button class="btn btn-ghost btn-sm" id="note-edit-btn" onclick="editCurrentNote()">✏️ Edit</button>
+        <button class="modal-close" onclick="closeModal('modal-note-view')">×</button>
+      </div>
+    </div>
+    <div id="note-view-content" style="font-size:14px;line-height:1.9;color:var(--text2)"></div>
+    <div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center">
+      <span id="note-view-meta" style="font-size:12px;color:var(--text3)"></span>
+      <button class="btn btn-danger btn-sm" id="note-delete-btn">🗑️ Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toast-container"></div>
+
+<!-- ══════════════════════════════════════════
+     JAVASCRIPT
+     ══════════════════════════════════════════ -->
+<script>
+// ═══════════════════════════════════════════
+// FIREBASE — Init + Auth + Firestore
+// ═══════════════════════════════════════════
+
+let db = null, auth = null, currentUser = null;
+let unsubscribers = []; // real-time listeners cleanup
+
+// Local cache (for offline + fast UI)
+let notes        = [];
+let tasks        = [];
+let schedules    = [];
+let transactions = [];
+let settings     = {
+  name: '', tgToken: '', tgChannel: '',
+  visitors: 2, videos: 0, earnings: 0, tgsubs: 0,
+  siteUrl: '', debt: 100000, debtPaid: 0,
+  rapido: 0, siteIncome: 0, otherIncome: 0
+};
+
+// ── Firebase Config Storage (localStorage, not Firestore) ──
+const LocalConfig = {
+  get() { try { return JSON.parse(localStorage.getItem('fb_config') || 'null'); } catch { return null; } },
+  set(cfg) { localStorage.setItem('fb_config', JSON.stringify(cfg)); },
+  clear() { localStorage.removeItem('fb_config'); }
+};
+
+// ── Init Firebase ──
+function initFirebase(config) {
+  try {
+    if (firebase.apps.length) firebase.apps.forEach(a => a.delete());
+    firebase.initializeApp(config);
+    db   = firebase.firestore();
+    auth = firebase.auth();
+    // Enable offline persistence
+    db.enablePersistence({ synchronizeTabs: true }).catch(e => console.log('Persistence:', e.code));
+    return true;
+  } catch(e) {
+    console.error('Firebase init error:', e);
+    return false;
+  }
+}
+
+// ── User collection path ──
+function userCol(col) {
+  return db.collection('users').doc(currentUser.uid).collection(col);
+}
+function userDoc() {
+  return db.collection('users').doc(currentUser.uid);
+}
+
+// ── DB wrapper — Firestore ──
+const DB = {
+  // Save full array to Firestore (batch write)
+  async setArray(col, arr) {
+    try {
+      const batch = db.batch();
+      // Delete all existing docs in collection
+      const existing = await userCol(col).get();
+      existing.forEach(d => batch.delete(d.ref));
+      // Add new docs
+      arr.forEach(item => {
+        const ref = userCol(col).doc(String(item.id));
+        batch.set(ref, item);
+      });
+      await batch.commit();
+    } catch(e) { console.error('DB.setArray error:', e); }
+  },
+
+  // Save single doc (for settings)
+  async setDoc(docId, data) {
+    try { await userDoc().collection('meta').doc(docId).set(data); } 
+    catch(e) { console.error('DB.setDoc error:', e); }
+  },
+
+  // Get single doc
+  async getDoc(docId, def) {
+    try {
+      const snap = await userDoc().collection('meta').doc(docId).get();
+      return snap.exists ? snap.data() : def;
+    } catch(e) { return def; }
+  }
+};
+
+// ── Real-time listeners ──
+function startListeners() {
+  // Cleanup old listeners
+  unsubscribers.forEach(u => u());
+  unsubscribers = [];
+
+  const collections = [
+    { col: 'notes',        setter: arr => { notes = arr; renderNotes(); updateBadges(); renderDashboard(); } },
+    { col: 'tasks',        setter: arr => { tasks = arr; renderTasks(); updateBadges(); renderDashboard(); } },
+    { col: 'schedules',    setter: arr => { schedules = arr; renderSchedule(); } },
+    { col: 'transactions', setter: arr => { transactions = arr; renderFinance(); } },
+  ];
+
+  collections.forEach(({ col, setter }) => {
+    const unsub = userCol(col).onSnapshot(snap => {
+      const arr = snap.docs.map(d => d.data());
+      setter(arr);
+    }, err => console.log(col + ' listener error:', err));
+    unsubscribers.push(unsub);
+  });
+
+  // Settings listener
+  const unsubSettings = userDoc().collection('meta').doc('settings').onSnapshot(snap => {
+    if (snap.exists) {
+      settings = { ...settings, ...snap.data() };
+      renderDashboard();
+      loadSettings();
+      renderFinance();
+    }
+  });
+  unsubscribers.push(unsubSettings);
+}
+
+let currentNoteId = null;
+let selectedChips = new Set(['telegram']);
+
+// ═══════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════
+// ═══════════════════════════════════════════
+// APP STARTUP — Firebase auth flow
+// ═══════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  const config = LocalConfig.get();
+  
+  if (!config) {
+    // First time: show setup screen
+    showScreen('setup');
+    return;
+  }
+  
+  if (!initFirebase(config)) {
+    showScreen('setup');
+    showSetupError('Firebase config galat hai. Dobara daalo.');
+    return;
+  }
+
+  // Listen for auth state
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      showScreen('app');
+      onUserLoggedIn();
+    } else {
+      currentUser = null;
+      showScreen('auth');
+    }
+  });
+});
+
+function showScreen(screen) {
+  document.getElementById('setup-screen').classList.toggle('hidden', screen !== 'setup');
+  document.getElementById('auth-screen').classList.toggle('hidden', screen !== 'auth');
+  document.querySelector('.app').style.display = screen === 'app' ? 'flex' : 'none';
+}
+
+function onUserLoggedIn() {
+  // Update UI
+  const email = currentUser.email || '';
+  const initial = (currentUser.displayName || email || 'U')[0].toUpperCase();
+  document.getElementById('user-initial').textContent = initial;
+  document.getElementById('user-email-display').textContent = email;
+  
+  // Start real-time listeners
+  startListeners();
+  
+  // Init UI
+  initGreeting();
+  setInterval(initGreeting, 60000);
+}
+
+// ── Firebase Config Setup ──
+function saveFirebaseConfig() {
+  const config = {
+    apiKey:            document.getElementById('fb-apiKey').value.trim(),
+    authDomain:        document.getElementById('fb-authDomain').value.trim(),
+    projectId:         document.getElementById('fb-projectId').value.trim(),
+    storageBucket:     document.getElementById('fb-storageBucket').value.trim(),
+    messagingSenderId: document.getElementById('fb-messagingSenderId').value.trim(),
+    appId:             document.getElementById('fb-appId').value.trim(),
+  };
+  
+  if (!config.apiKey || !config.authDomain || !config.projectId) {
+    showSetupError('apiKey, authDomain, aur projectId zaroori hai!');
+    return;
+  }
+
+  if (!initFirebase(config)) {
+    showSetupError('Config galat lag rahi hai. Dobara check karo.');
+    return;
+  }
+
+  // Test connection
+  auth.signInAnonymously()
+    .then(() => auth.currentUser.delete())
+    .then(() => {
+      LocalConfig.set(config);
+      showScreen('auth');
+    })
+    .catch(e => {
+      if (e.code === 'auth/admin-restricted-operation' || e.code === 'auth/operation-not-allowed') {
+        // Anonymous disabled is fine — email auth is what we need
+        LocalConfig.set(config);
+        showScreen('auth');
+      } else if (e.code === 'auth/network-request-failed') {
+        showSetupError('Internet check karo.');
+      } else {
+        LocalConfig.set(config);
+        showScreen('auth');
+      }
+    });
+}
+
+function showSetupError(msg) {
+  const el = document.getElementById('setup-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function resetFirebaseConfig() {
+  if (!confirm('Firebase config reset karna hai? Logout ho jaoge.')) return;
+  unsubscribers.forEach(u => u());
+  auth?.signOut();
+  LocalConfig.clear();
+  showScreen('setup');
+}
+
+// ── Auth Functions ──
+function switchAuthTab(tab, el) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('login-form').style.display    = tab === 'login'    ? 'block' : 'none';
+  document.getElementById('register-form').style.display = tab === 'register' ? 'block' : 'none';
+  document.getElementById('auth-error').classList.remove('show');
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('auth-error');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value.trim();
+  const pass  = document.getElementById('login-pass').value;
+  if (!email || !pass) { showAuthError('Email aur password dono chahiye!'); return; }
+  
+  const btn = document.getElementById('login-btn');
+  btn.textContent = '⏳ Login ho raha hai...'; btn.disabled = true;
+  
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+    // onAuthStateChanged handle karega
+  } catch(e) {
+    const msgs = {
+      'auth/user-not-found':   'Yeh email registered nahi hai.',
+      'auth/wrong-password':   'Password galat hai.',
+      'auth/invalid-email':    'Email galat format mein hai.',
+      'auth/too-many-requests':'Bahut zyada tries. Thodi der baad karo.',
+      'auth/invalid-credential': 'Email ya password galat hai.',
+    };
+    showAuthError(msgs[e.code] || e.message);
+  } finally {
+    btn.textContent = '🔐 Login Karo'; btn.disabled = false;
+  }
+}
+
+async function doRegister() {
+  const name  = document.getElementById('reg-name').value.trim();
+  const email = document.getElementById('reg-email').value.trim();
+  const pass  = document.getElementById('reg-pass').value;
+  if (!email || !pass) { showAuthError('Email aur password dono chahiye!'); return; }
+  if (pass.length < 6) { showAuthError('Password kam se kam 6 characters ka ho!'); return; }
+  
+  const btn = document.getElementById('reg-btn');
+  btn.textContent = '⏳ Account ban raha hai...'; btn.disabled = true;
+  
+  try {
+    const cred = await auth.createUserWithEmailAndPassword(email, pass);
+    if (name) await cred.user.updateProfile({ displayName: name });
+    // onAuthStateChanged handle karega
+  } catch(e) {
+    const msgs = {
+      'auth/email-already-in-use': 'Yeh email already registered hai. Login karo.',
+      'auth/weak-password':        'Password aur strong banao.',
+      'auth/invalid-email':        'Email galat format mein hai.',
+    };
+    showAuthError(msgs[e.code] || e.message);
+  } finally {
+    btn.textContent = '✨ Account Banao'; btn.disabled = false;
+  }
+}
+
+async function doForgotPassword() {
+  const email = document.getElementById('login-email').value.trim();
+  if (!email) { showAuthError('Pehle email daalo, phir reset karo.'); return; }
+  try {
+    await auth.sendPasswordResetEmail(email);
+    showAuthError('✅ Reset email bheja gaya! Inbox check karo.');
+    document.getElementById('auth-error').style.background = 'rgba(92,252,180,0.1)';
+    document.getElementById('auth-error').style.borderColor = 'rgba(92,252,180,0.25)';
+    document.getElementById('auth-error').style.color = 'var(--green)';
+  } catch(e) {
+    showAuthError('Email bhejne mein error: ' + e.message);
+  }
+}
+
+async function doLogout() {
+  unsubscribers.forEach(u => u());
+  await auth.signOut();
+  notes = []; tasks = []; schedules = []; transactions = [];
+  showScreen('auth');
+  closeUserMenu();
+}
+
+function toggleUserMenu() {
+  document.getElementById('user-menu').classList.toggle('open');
+}
+function closeUserMenu() {
+  document.getElementById('user-menu').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.user-avatar')) closeUserMenu();
+});
+
+function initGreeting() {
+  const h = new Date().getHours();
+  const name = settings.name || 'Bhai';
+  let greeting = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+  const msgs = [
+    `${greeting}, ${name}! Aaj site pe focus karo 🔥`,
+    `${greeting}, ${name}! Har din ek kadam aage 💪`,
+    `${greeting}, ${name}! Visitors badhao, paisa aayega 🚀`,
+    `${greeting}, ${name}! Telegram pe post kiya aaj? 📢`,
+  ];
+  document.getElementById('greeting-text').textContent = msgs[Math.floor(Math.random() * msgs.length)];
+}
+
+// ═══════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const page = document.getElementById('page-' + id);
+  if (page) page.classList.add('active');
+  const navItems = document.querySelectorAll('.nav-item');
+  navItems.forEach(n => {
+    if (n.getAttribute('onclick')?.includes(id)) n.classList.add('active');
+  });
+  if (id === 'dashboard') renderDashboard();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('expanded');
+}
+
+// ═══════════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════════
+function renderDashboard() {
+  document.getElementById('stat-visitors').textContent = settings.visitors || 2;
+  document.getElementById('stat-videos').textContent = settings.videos || 0;
+  document.getElementById('stat-earnings').textContent = '₹' + (settings.earnings || 0);
+  document.getElementById('stat-tg-subs').textContent = settings.tgsubs || 0;
+
+  // Today tasks (top 4)
+  const todayTasks = tasks.filter(t => !t.done).slice(0, 4);
+  const dtEl = document.getElementById('dashboard-tasks');
+  if (todayTasks.length === 0) {
+    dtEl.innerHTML = '<div class="empty-state" style="padding:20px 0"><div style="font-size:28px">✅</div><div style="font-size:13px;color:var(--text3);margin-top:6px">Koi pending task nahi!</div></div>';
+  } else {
+    dtEl.innerHTML = todayTasks.map(t => `
+      <div class="task-item ${t.done?'done':''}" onclick="toggleTask('${t.id}')">
+        <div class="task-check">${t.done?'✓':''}</div>
+        <div class="task-text">${t.text}</div>
+        <div class="task-priority priority-${t.priority}">${t.priority.toUpperCase()}</div>
+      </div>`).join('');
+  }
+
+  // Recent notes (top 4)
+  const recentNotes = [...notes].sort((a,b)=>b.id-a.id).slice(0, 4);
+  const dnEl = document.getElementById('dashboard-notes');
+  if (recentNotes.length === 0) {
+    dnEl.innerHTML = '<div class="empty-state" style="padding:20px 0"><div style="font-size:28px">📒</div><div style="font-size:13px;color:var(--text3);margin-top:6px">Koi note nahi. Likho!</div></div>';
+  } else {
+    dnEl.innerHTML = recentNotes.map(n => `
+      <div style="padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer" onclick="viewNote('${n.id}')">
+        <div style="font-size:14px;font-weight:500;margin-bottom:2px">${n.title}</div>
+        <div style="font-size:12px;color:var(--text3)">${getCatLabel(n.category)} • ${formatDate(n.id)}</div>
+      </div>`).join('');
+  }
+
+  // Week number
+  const start = new Date('2026-03-12');
+  const diff = Math.floor((Date.now() - start) / (7 * 24 * 60 * 60 * 1000)) + 1;
+  document.getElementById('current-week').textContent = Math.min(diff, 4);
+}
+
+// ═══════════════════════════════════════════
+// NOTES
+// ═══════════════════════════════════════════
+let currentNoteFilter = 'all';
+let noteSearchQuery = '';
+
+function renderNotes(filter=currentNoteFilter, search=noteSearchQuery) {
+  currentNoteFilter = filter;
+  noteSearchQuery = search;
+  let filtered = notes;
+  if (filter !== 'all') filtered = filtered.filter(n => n.category === filter);
+  if (search) filtered = filtered.filter(n =>
+    n.title.toLowerCase().includes(search.toLowerCase()) ||
+    n.content.toLowerCase().includes(search.toLowerCase())
+  );
+  filtered = filtered.sort((a,b) => b.id - a.id);
+
+  const el = document.getElementById('notes-grid');
+  if (filtered.length === 0) {
+    el.innerHTML = '<div class="empty-state" style="grid-column:1/-1"><div class="empty-state-icon">📒</div><div class="empty-state-title">Koi note nahi mila</div><div class="empty-state-text">+ Naya Note button dabaao</div></div>';
+    return;
+  }
+  el.innerHTML = filtered.map(n => `
+    <div class="note-card cat-${n.category}" onclick="viewNote('${n.id}')">
+      <div class="note-title">${n.title}</div>
+      <div class="note-preview">${stripHtml(n.content)}</div>
+      <div class="note-meta">
+        <span class="note-category cat-${n.category}">${getCatLabel(n.category)}</span>
+        <span class="note-date">${formatDate(n.id)}</span>
+      </div>
+    </div>`).join('');
+}
+
+function filterNotes(filter, el) {
+  document.querySelectorAll('#notes-tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderNotes(filter);
+}
+
+function searchNotes(q) { renderNotes(currentNoteFilter, q); }
+
+function openNoteModal(note=null) {
+  currentNoteId = note ? note.id : null;
+  document.getElementById('note-modal-title').textContent = note ? '✏️ Note Edit Karo' : '📝 Naya Note';
+  document.getElementById('note-title-input').value = note ? note.title : '';
+  document.getElementById('note-cat-input').value = note ? note.category : 'site';
+  document.getElementById('note-content-input').innerHTML = note ? note.content : '';
+  openModal('modal-note');
+  setTimeout(() => document.getElementById('note-title-input').focus(), 100);
+}
+
+function saveNote() {
+  const title = document.getElementById('note-title-input').value.trim();
+  const cat   = document.getElementById('note-cat-input').value;
+  const content = document.getElementById('note-content-input').innerHTML.trim();
+  if (!title) { toast('Title likhna zaruri hai!', 'error'); return; }
+  const noteData = { id: currentNoteId || Date.now(), title, category: cat, content };
+  const ref = userCol('notes').doc(String(noteData.id));
+  ref.set(noteData)
+    .then(() => {
+      closeModal('modal-note');
+      toast(currentNoteId ? 'Note update ho gaya!' : 'Note save ho gaya!', 'success');
+      currentNoteId = null;
+    })
+    .catch(e => toast('Error: ' + e.message, 'error'));
+}
+
+function viewNote(id) {
+  const note = notes.find(n => n.id == id);
+  if (!note) return;
+  currentNoteId = id;
+  document.getElementById('note-view-title').textContent = note.title;
+  document.getElementById('note-view-content').innerHTML = note.content || '<em style="color:var(--text3)">Koi content nahi</em>';
+  document.getElementById('note-view-meta').textContent = getCatLabel(note.category) + ' • ' + formatDate(note.id);
+  document.getElementById('note-delete-btn').onclick = () => deleteNote(id);
+  openModal('modal-note-view');
+}
+
+function editCurrentNote() {
+  closeModal('modal-note-view');
+  const note = notes.find(n => n.id == currentNoteId);
+  if (note) openNoteModal(note);
+}
+
+function deleteNote(id) {
+  if (!confirm('Note delete karna hai?')) return;
+  userCol('notes').doc(String(id)).delete()
+    .then(() => {
+      closeModal('modal-note-view');
+      toast('Note delete ho gaya', 'info');
+    })
+    .catch(e => toast('Error: ' + e.message, 'error'));
+}
+
+// ═══════════════════════════════════════════
+// TASKS
+// ═══════════════════════════════════════════
+function renderTasks(filter='all') {
+  let high   = tasks.filter(t => t.priority === 'high');
+  let normal = tasks.filter(t => t.priority !== 'high');
+  if (filter === 'pending') { high = high.filter(t => !t.done); normal = normal.filter(t => !t.done); }
+  if (filter === 'done')    { high = high.filter(t => t.done);  normal = normal.filter(t => t.done);  }
+
+  const renderList = (items) => items.length ? items.map(t => `
+    <div class="task-item ${t.done?'done':''}" onclick="toggleTask('${t.id}')">
+      <div class="task-check">${t.done?'✓':''}</div>
+      <div class="task-text">${t.text}</div>
+      <div class="task-priority priority-${t.priority}">${t.priority.toUpperCase()}</div>
+      <button onclick="deleteTask(event,'${t.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:14px;padding:2px 6px;border-radius:4px" title="Delete">×</button>
+    </div>`).join('') : '<div style="padding:20px;text-align:center;color:var(--text3);font-size:13px">Koi task nahi</div>';
+
+  document.getElementById('tasks-high').innerHTML = renderList(high);
+  document.getElementById('tasks-normal').innerHTML = renderList(normal);
+}
+
+function openTaskModal() { openModal('modal-task'); setTimeout(() => document.getElementById('task-text-input').focus(), 100); }
+
+function saveTask() {
+  const text = document.getElementById('task-text-input').value.trim();
+  if (!text) { toast('Task likhna zaruri hai!', 'error'); return; }
+  const priority = document.getElementById('task-priority-input').value;
+  const taskData = { id: Date.now(), text, priority, done: false };
+  userCol('tasks').doc(String(taskData.id)).set(taskData)
+    .then(() => {
+      closeModal('modal-task');
+      document.getElementById('task-text-input').value = '';
+      toast('Task add ho gaya!', 'success');
+    })
+    .catch(e => toast('Error: ' + e.message, 'error'));
+}
+
+function toggleTask(id) {
+  const t = tasks.find(t => t.id == id);
+  if (t) {
+    userCol('tasks').doc(String(t.id)).update({ done: !t.done })
+      .catch(e => console.error(e));
+  }
+}
+
+function deleteTask(e, id) {
+  e.stopPropagation();
+  userCol('tasks').doc(String(id)).delete().catch(e => console.error(e));
+}
+
+function filterTasks(f, el) {
+  document.querySelectorAll('#page-tasks .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderTasks(f);
+}
+
+function clearDoneTasks() {
+  const doneTasks = tasks.filter(t => t.done);
+  const batch = db.batch();
+  doneTasks.forEach(t => batch.delete(userCol('tasks').doc(String(t.id))));
+  batch.commit().then(() => toast('Done tasks clear ho gaye!', 'info'));
+}
+
+// ═══════════════════════════════════════════
+// SCHEDULE
+// ═══════════════════════════════════════════
+function renderSchedule() {
+  const el = document.getElementById('schedule-today');
+  const sorted = [...schedules].sort((a,b) => a.time.localeCompare(b.time));
+  if (!sorted.length) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = sorted.map(s => `
+    <div class="schedule-item">
+      <div class="schedule-time">${s.time}</div>
+      <div class="schedule-dot"></div>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500">${s.task}</div>
+      </div>
+      <button onclick="deleteSchedule('${s.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px">×</button>
+    </div>`).join('');
+}
+
+function openScheduleModal() { openModal('modal-schedule'); }
+
+function saveSchedule() {
+  const time = document.getElementById('sch-time').value;
+  const task = document.getElementById('sch-task').value.trim();
+  if (!time || !task) { toast('Time aur task dono chahiye!', 'error'); return; }
+  const schData = { id: Date.now(), time, task };
+  userCol('schedules').doc(String(schData.id)).set(schData)
+    .then(() => { closeModal('modal-schedule'); toast('Schedule add ho gaya!', 'success'); })
+    .catch(e => toast('Error: ' + e.message, 'error'));
+}
+
+function deleteSchedule(id) {
+  userCol('schedules').doc(String(id)).delete().catch(e => console.error(e));
+}
+
+// ═══════════════════════════════════════════
+// FINANCE
+// ═══════════════════════════════════════════
+function renderFinance() {
+  document.getElementById('debt-total').textContent = '₹' + formatNum(settings.debt || 100000);
+  document.getElementById('debt-paid').textContent = '₹' + formatNum(settings.debtPaid || 0);
+  const pct = Math.min(100, Math.round((settings.debtPaid / settings.debt) * 100)) || 0;
+  document.getElementById('debt-bar-fill').style.width = pct + '%';
+  document.getElementById('debt-percent').textContent = pct + '% paid';
+
+  const income = (settings.rapido || 0) + (settings.siteIncome || 0) + (settings.otherIncome || 0);
+  const expense = transactions.filter(t => t.type === 'expense').reduce((s,t) => s + t.amount, 0);
+  document.getElementById('fin-income').textContent = '₹' + formatNum(income);
+  document.getElementById('fin-expense').textContent = '₹' + formatNum(expense);
+  document.getElementById('fin-balance').textContent = '₹' + formatNum(income - expense);
+
+  renderTransactions();
+}
+
+function renderTransactions() {
+  const el = document.getElementById('transactions-list');
+  if (!transactions.length) {
+    el.innerHTML = '<div class="empty-state" style="padding:30px 0"><div style="font-size:28px">💸</div><div style="font-size:14px;color:var(--text3);margin-top:8px">Koi transaction nahi</div></div>';
+    return;
+  }
+  const sorted = [...transactions].sort((a,b) => b.id - a.id).slice(0, 20);
+  el.innerHTML = sorted.map(t => `
+    <div style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--bg3);border-radius:8px;margin-bottom:8px">
+      <span style="font-size:20px">${t.type==='income'?'💵':t.type==='debt'?'🔴':'💸'}</span>
+      <div style="flex:1">
+        <div style="font-size:14px;font-weight:500">${t.desc}</div>
+        <div style="font-size:12px;color:var(--text3)">${formatDate(t.id)}</div>
+      </div>
+      <div style="font-weight:700;font-size:15px;color:${t.type==='income'?'var(--green)':'var(--red)'}">
+        ${t.type==='income'?'+':'-'}₹${formatNum(t.amount)}
+      </div>
+      <button onclick="deleteTx('${t.id}')" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:16px">×</button>
+    </div>`).join('');
+}
+
+function openTransactionModal() { openModal('modal-transaction'); }
+
+function saveTransaction() {
+  const type   = document.getElementById('tx-type').value;
+  const amount = parseFloat(document.getElementById('tx-amount').value);
+  const desc   = document.getElementById('tx-desc').value.trim() || (type === 'income' ? 'Income' : 'Expense');
+  if (!amount) { toast('Amount likhna zaruri hai!', 'error'); return; }
+  const txData = { id: Date.now(), type, amount, desc };
+  const saves = [userCol('transactions').doc(String(txData.id)).set(txData)];
+  if (type === 'debt') {
+    settings.debtPaid = (settings.debtPaid || 0) + amount;
+    saves.push(DB.setDoc('settings', settings));
+  }
+  Promise.all(saves)
+    .then(() => { closeModal('modal-transaction'); toast('Transaction add ho gaya!', 'success'); })
+    .catch(e => toast('Error: ' + e.message, 'error'));
+}
+
+function deleteTx(id) {
+  userCol('transactions').doc(String(id)).delete().catch(e => console.error(e));
+}
+
+function updateDebt() {
+  const total = prompt('Total debt amount (₹):', settings.debt || 100000);
+  const paid  = prompt('Paid amount (₹):', settings.debtPaid || 0);
+  if (total !== null) settings.debt = parseFloat(total) || 100000;
+  if (paid  !== null) settings.debtPaid = parseFloat(paid) || 0;
+  DB.setDoc('settings', settings).then(() => {
+    renderFinance();
+    toast('Debt update ho gaya!', 'success');
+  });
+}
+
+function saveFinance() {
+  settings.rapido     = parseFloat(document.getElementById('rapido-income')?.value) || 0;
+  settings.siteIncome = parseFloat(document.getElementById('site-income')?.value)   || 0;
+  settings.otherIncome= parseFloat(document.getElementById('other-income')?.value)  || 0;
+  DB.setDoc('settings', settings);
+  renderFinance();
+}
+
+// ═══════════════════════════════════════════
+// SETTINGS
+// ═══════════════════════════════════════════
+function loadSettings() {
+  document.getElementById('s-tg-token').value  = settings.tgToken || '';
+  document.getElementById('s-tg-channel').value= settings.tgChannel || '';
+  document.getElementById('s-visitors').value  = settings.visitors || '';
+  document.getElementById('s-videos').value    = settings.videos || '';
+  document.getElementById('s-earnings').value  = settings.earnings || '';
+  document.getElementById('s-tgsubs').value    = settings.tgsubs || '';
+  document.getElementById('s-name').value      = settings.name || '';
+  document.getElementById('s-site-url').value  = settings.siteUrl || '';
+  updateTelegramStatus();
+}
+
+function saveSettings() {
+  settings.tgToken  = document.getElementById('s-tg-token')?.value.trim() || settings.tgToken;
+  settings.tgChannel= document.getElementById('s-tg-channel')?.value.trim() || settings.tgChannel;
+  settings.name     = document.getElementById('s-name')?.value.trim() || settings.name;
+  settings.siteUrl  = document.getElementById('s-site-url')?.value.trim() || settings.siteUrl;
+  DB.setDoc('settings', settings);
+  updateTelegramStatus();
+}
+
+function updateStats() {
+  settings.visitors = parseInt(document.getElementById('s-visitors').value) || 0;
+  settings.videos   = parseInt(document.getElementById('s-videos').value)   || 0;
+  settings.earnings = parseFloat(document.getElementById('s-earnings').value) || 0;
+  settings.tgsubs   = parseInt(document.getElementById('s-tgsubs').value)   || 0;
+  DB.setDoc('settings', settings).then(() => {
+    toast('Stats update ho gaye!', 'success');
+  });
+}
+
+function updateTelegramStatus() {
+  const hasBot = settings.tgToken && settings.tgChannel;
+  document.getElementById('tg-bot-connected').style.display = hasBot ? 'block' : 'none';
+  document.getElementById('tg-setup-instructions').style.display = hasBot ? 'none' : 'block';
+  const badge = document.getElementById('tg-bot-status-badge');
+  if (badge) {
+    badge.textContent = hasBot ? '✅ Connected' : '⚠️ Bot chahiye';
+    badge.style.background = hasBot ? 'rgba(92,252,180,0.1)' : 'rgba(252,92,92,0.1)';
+    badge.style.color = hasBot ? 'var(--green)' : 'var(--red)';
+  }
+}
+
+async function testTelegramBot() {
+  const token   = document.getElementById('s-tg-token').value.trim();
+  const channel = document.getElementById('s-tg-channel').value.trim();
+  const resEl   = document.getElementById('tg-test-result');
+  if (!token || !channel) { resEl.innerHTML = '<div class="bot-status fail"><div class="bot-dot"></div>Token aur Channel ID dono chahiye!</div>'; return; }
+  resEl.innerHTML = '<div style="font-size:13px;color:var(--text3)">Testing...</div>';
+  try {
+    const r = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: channel, text: '✅ Dashboard se test message! Bot sahi kaam kar raha hai 🎉' })
+    });
+    const data = await r.json();
+    if (data.ok) {
+      resEl.innerHTML = '<div class="bot-status ok"><div class="bot-dot"></div>Bot connected! Test message bheja gaya ✅</div>';
+      saveSettings();
+      updateTelegramStatus();
+      toast('Telegram bot connected!', 'success');
+    } else {
+      resEl.innerHTML = `<div class="bot-status fail"><div class="bot-dot"></div>Error: ${data.description}</div>`;
+    }
+  } catch(e) {
+    resEl.innerHTML = '<div class="bot-status fail"><div class="bot-dot"></div>Connection fail. Token check karo.</div>';
+  }
+}
+
+// ═══════════════════════════════════════════
+// UPLOAD & SOCIAL
+// ═══════════════════════════════════════════
+let fileQueue = [];
+
+function toggleChip(id) {
+  const el = document.getElementById('chip-' + id);
+  if (selectedChips.has(id)) { selectedChips.delete(id); el.classList.remove('selected'); }
+  else { selectedChips.add(id); el.classList.add('selected'); }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('chip-telegram').classList.add('selected');
+});
+
+function handleFiles(e) { addFiles(Array.from(e.target.files)); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag-over');
+  addFiles(Array.from(e.dataTransfer.files));
+}
+function handleDragOver(e) { e.preventDefault(); document.getElementById('upload-zone').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('upload-zone').classList.remove('drag-over'); }
+
+function addFiles(files) {
+  const videoTypes = ['video/mp4','video/quicktime','video/x-msvideo','video/webm','image/jpeg','image/png','image/gif','image/webp'];
+  const valid = files.filter(f => videoTypes.includes(f.type));
+  if (!valid.length) { toast('Valid video ya image file choose karo!', 'error'); return; }
+  valid.forEach(f => {
+    if (!fileQueue.find(q => q.name === f.name && q.size === f.size)) {
+      fileQueue.push({ id: Date.now() + Math.random(), file: f, name: f.name, size: f.size, status: 'ready', url: URL.createObjectURL(f) });
+    }
+  });
+  renderFileQueue();
+  toast(valid.length + ' file(s) queue mein add ho gayi!', 'success');
+}
+
+function renderFileQueue() {
+  const el = document.getElementById('video-list');
+  const btn = document.getElementById('upload-all-btn');
+  if (!fileQueue.length) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📂</div><div class="empty-state-title">Koi file nahi</div><div class="empty-state-text">Upar se file add karo</div></div>';
+    btn.style.display = 'none';
+    return;
+  }
+  btn.style.display = 'flex';
+  el.innerHTML = fileQueue.map(item => {
+    const isVideo = item.file.type.startsWith('video');
+    const thumb = isVideo ? `<video src="${item.url}" class="video-thumb"></video>` : `<img src="${item.url}" class="video-thumb" style="border-radius:6px;object-fit:cover">`;
+    const statusColor = item.status === 'done' ? 'var(--green)' : item.status === 'uploading' ? 'var(--accent)' : item.status === 'error' ? 'var(--red)' : 'var(--text3)';
+    const statusText = item.status === 'done' ? '✅ Done' : item.status === 'uploading' ? '⏳ Uploading...' : item.status === 'error' ? '❌ Error' : '⏳ Ready';
+    return `
+      <div class="video-item" id="vitem-${item.id}">
+        <div class="video-thumb">${thumb}</div>
+        <div class="video-info">
+          <div class="video-name">${item.name}</div>
+          <div class="video-size">${formatSize(item.size)} • <span style="color:${statusColor}">${statusText}</span></div>
+          ${item.status === 'uploading' ? `<div class="progress-bar"><div class="progress-fill" id="prog-${item.id}" style="width:0%"></div></div>` : ''}
+          ${item.uploadResults ? `<div style="font-size:11px;color:var(--text3);margin-top:4px">${item.uploadResults}</div>` : ''}
+        </div>
+        <div class="video-actions">
+          <button class="btn btn-primary btn-sm" onclick="uploadSingle('${item.id}')" ${item.status !== 'ready' ? 'disabled style="opacity:0.5"' : ''}>Upload</button>
+          <button class="btn btn-ghost btn-sm" onclick="removeFile('${item.id}')">×</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function removeFile(id) {
+  fileQueue = fileQueue.filter(f => f.id != id);
+  renderFileQueue();
+}
+
+async function uploadSingle(id) {
+  const item = fileQueue.find(f => f.id == id);
+  if (!item) return;
+  item.status = 'uploading';
+  renderFileQueue();
+
+  const results = [];
+  for (const chip of selectedChips) {
+    const r = await uploadToService(item, chip, id);
+    results.push(r);
+  }
+  item.status = results.every(r => r.ok) ? 'done' : 'error';
+  item.uploadResults = results.map(r => r.msg).join(' | ');
+  renderFileQueue();
+}
+
+async function uploadAll() {
+  const ready = fileQueue.filter(f => f.status === 'ready');
+  for (const item of ready) { await uploadSingle(item.id); }
+  toast('Sab files upload ho gayi!', 'success');
+}
+
+async function uploadToService(item, service, fileId) {
+  if (service === 'telegram') {
+    return await uploadToTelegram(item, fileId);
+  }
+  // Other services: open platform with instructions
+  const urls = {
+    instagram: 'https://www.instagram.com/',
+    twitter:   'https://twitter.com/compose/tweet',
+    reddit:    'https://www.reddit.com/submit',
+    youtube:   'https://studio.youtube.com/',
+    xvideos:   'https://upload.xvideos.com/'
+  };
+  if (urls[service]) {
+    window.open(urls[service], '_blank');
+    return { ok: true, msg: `${service}: browser mein open kiya ✅` };
+  }
+  return { ok: false, msg: `${service}: supported nahi` };
+}
+
+async function uploadToTelegram(item, fileId) {
+  if (!settings.tgToken || !settings.tgChannel) {
+    return { ok: false, msg: 'Telegram: Bot setup nahi ⚠️' };
+  }
+  const caption = document.getElementById('tg-caption')?.value || '';
+  const isVideo = item.file.type.startsWith('video');
+  const endpoint = isVideo ? 'sendVideo' : 'sendPhoto';
+  const fieldName = isVideo ? 'video' : 'photo';
+
+  const formData = new FormData();
+  formData.append('chat_id', settings.tgChannel);
+  formData.append(fieldName, item.file, item.name);
+  if (caption) formData.append('caption', caption);
+
+  try {
+    // Simulate progress
+    let prog = 0;
+    const interval = setInterval(() => {
+      prog = Math.min(prog + 10, 90);
+      const bar = document.getElementById('prog-' + fileId);
+      if (bar) bar.style.width = prog + '%';
+    }, 300);
+
+    const r = await fetch(`https://api.telegram.org/bot${settings.tgToken}/${endpoint}`, {
+      method: 'POST', body: formData
+    });
+    clearInterval(interval);
+    const bar = document.getElementById('prog-' + fileId);
+    if (bar) bar.style.width = '100%';
+
+    const data = await r.json();
+    if (data.ok) return { ok: true, msg: 'Telegram: Uploaded ✅' };
+    return { ok: false, msg: `Telegram: ${data.description} ❌` };
+  } catch(e) {
+    return { ok: false, msg: 'Telegram: Network error ❌' };
+  }
+}
+
+// ═══════════════════════════════════════════
+// DATA EXPORT / IMPORT
+// ═══════════════════════════════════════════
+function exportData() {
+  const data = { notes, tasks, schedules, transactions, settings, exportDate: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url;
+  a.download = 'dashboard-backup-' + new Date().toISOString().slice(0,10) + '.json';
+  a.click();
+  toast('Backup download ho gaya!', 'success');
+}
+
+function importData() {
+  const input = document.createElement('input');
+  input.type = 'file'; input.accept = '.json';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        const uploads = [];
+        if (data.notes)        { uploads.push(DB.setArray('notes', data.notes)); }
+        if (data.tasks)        { uploads.push(DB.setArray('tasks', data.tasks)); }
+        if (data.schedules)    { uploads.push(DB.setArray('schedules', data.schedules)); }
+        if (data.transactions) { uploads.push(DB.setArray('transactions', data.transactions)); }
+        if (data.settings)     { uploads.push(DB.setDoc('settings', data.settings)); }
+        toast('Import ho raha hai...', 'info');
+        Promise.all(uploads).then(() => toast('Data import ho gaya! ✅', 'success'));
+      } catch(e) { toast('File galat hai!', 'error'); }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+function clearAllData() {
+  if (!confirm('Sab data delete karna hai? Yeh wapas nahi aayega!')) return;
+  const batch = db.batch();
+  ['notes','tasks','schedules','transactions'].forEach(async col => {
+    const snap = await userCol(col).get();
+    snap.forEach(d => batch.delete(d.ref));
+  });
+  setTimeout(() => {
+    batch.commit().then(() => {
+      toast('Sab data delete ho gaya', 'info');
+    });
+  }, 300);
+}
+
+// ═══════════════════════════════════════════
+// MODAL HELPERS
+// ═══════════════════════════════════════════
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('modal-overlay')) closeModal(e.target.id);
+});
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') document.querySelectorAll('.modal-overlay.open').forEach(m => closeModal(m.id));
+});
+
+// ═══════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════
+function toast(msg, type='info') {
+  const el = document.createElement('div');
+  const icons = { success: '✅', error: '❌', info: 'ℹ️' };
+  el.className = `toast ${type}`;
+  el.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => { el.style.animation = 'toastOut 0.3s ease forwards'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ═══════════════════════════════════════════
+// RICH TEXT EDITOR
+// ═══════════════════════════════════════════
+function execCmd(cmd, val=null) {
+  document.getElementById('note-content-input').focus();
+  document.execCommand(cmd, false, val);
+}
+
+// ═══════════════════════════════════════════
+// BADGE UPDATE
+// ═══════════════════════════════════════════
+function updateBadges() {
+  const pendingTasks = tasks.filter(t => !t.done).length;
+  document.getElementById('tasks-badge').textContent = pendingTasks;
+  document.getElementById('notes-badge').textContent = notes.length;
+}
+
+// ═══════════════════════════════════════════
+// UTILITY FUNCTIONS
+// ═══════════════════════════════════════════
+function formatDate(ts) {
+  const d = new Date(ts);
+  return d.toLocaleDateString('hi-IN', { day: 'numeric', month: 'short' });
+}
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1024/1024).toFixed(1) + ' MB';
+}
+function formatNum(n) {
+  return new Intl.NumberFormat('en-IN').format(n || 0);
+}
+function stripHtml(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  return tmp.textContent || tmp.innerText || '';
+}
+function getCatLabel(cat) {
+  const labels = { site:'🌐 Site', social:'📱 Social', ideas:'💡 Ideas', finance:'💰 Finance', personal:'🙍 Personal' };
+  return labels[cat] || cat;
+}
+
+// ═══════════════════════════════════════════
+// PWA — Service Worker + Install Prompt
+// ═══════════════════════════════════════════
+let deferredInstallPrompt = null;
+
+// Service Worker register karo (sirf server pe kaam karta hai)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('✅ SW registered'))
+      .catch(err => console.log('SW skip (file mode):', err));
+  });
+}
+
+// Install prompt capture karo (server pe)
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+});
+
+// Hamesha install banner dikhao
+window.addEventListener('load', () => {
+  // Agar pehle se installed hai toh mat dikhao
+  if (window.matchMedia('(display-mode: standalone)').matches) return;
+  setTimeout(showInstallBanner, 1500);
+});
+
+function showInstallBanner() {
+  if (document.getElementById('install-banner')) return;
+
+  const isAndroid = /android/i.test(navigator.userAgent);
+  const isIOS     = /iphone|ipad|ipod/i.test(navigator.userAgent);
+  const isPC      = !isAndroid && !isIOS;
+
+  let instructions = '';
+  if (isAndroid) instructions = 'Chrome → Menu (⋮) → Add to Home Screen';
+  else if (isIOS) instructions = 'Safari → Share → Add to Home Screen';
+  else            instructions = 'Chrome/Edge → Address bar mein ⊕ icon → Install';
+
+  const banner = document.createElement('div');
+  banner.id = 'install-banner';
+  banner.innerHTML = `
+    <div style="
+      position:fixed; bottom:24px; left:50%; transform:translateX(-50%);
+      background:linear-gradient(135deg,#1a1a2e,#16213e);
+      border:1px solid rgba(124,92,252,0.4);
+      color:white; padding:16px 20px; border-radius:16px;
+      font-size:14px; font-weight:500; font-family:'DM Sans',sans-serif;
+      display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+      box-shadow:0 8px 40px rgba(124,92,252,0.25);
+      z-index:9999; max-width:90vw; min-width:300px;
+      animation:pwaSlideUp 0.5s cubic-bezier(0.34,1.56,0.64,1);
+    ">
+      <span style="font-size:28px">📲</span>
+      <div style="flex:1;min-width:180px">
+        <div style="font-weight:700;font-size:15px;margin-bottom:3px">App Install Karo</div>
+        <div style="font-size:12px;color:rgba(255,255,255,0.55);line-height:1.5">${instructions}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        ${deferredInstallPrompt ? `<button onclick="installApp()" style="background:linear-gradient(135deg,#7c5cfc,#fc5c7d);border:none;color:white;padding:9px 18px;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit">Install ✨</button>` : ''}
+        <button onclick="document.getElementById('install-banner').remove()" style="background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:rgba(255,255,255,0.6);width:32px;height:32px;border-radius:8px;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1">×</button>
+      </div>
+    </div>
+    <style>
+      @keyframes pwaSlideUp {
+        from { transform:translateX(-50%) translateY(80px); opacity:0; }
+        to   { transform:translateX(-50%) translateY(0);    opacity:1; }
+      }
+    </style>
+  `;
+  document.body.appendChild(banner);
+}
+
+async function installApp() {
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+      toast('App install ho gaya! 🎉', 'success');
+      document.getElementById('install-banner')?.remove();
+    }
+    deferredInstallPrompt = null;
+  }
+}
+
+window.addEventListener('appinstalled', () => {
+  toast('Dashboard app install ho gaya! 🚀', 'success');
+  document.getElementById('install-banner')?.remove();
+});
+
+// URL hash se direct page open
+window.addEventListener('load', () => {
+  const hash = window.location.hash.replace('#', '');
+  if (hash && document.getElementById('page-' + hash)) showPage(hash);
+});
+</script>
+</body>
+</html>
